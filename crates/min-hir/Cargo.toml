@@ -1,0 +1,13 @@
+[package]
+name = "min-hir"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+min-diagnostics = { path = "../min-diagnostics" }
+min-syntax = { path = "../min-syntax" }
+min-types = { path = "../min-types" }
+
+[dev-dependencies]
+expect-test = { workspace = true }
+insta = { workspace = true }

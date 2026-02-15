@@ -191,6 +191,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "min-hir"
+version = "0.1.0"
+dependencies = [
+ "expect-test",
+ "insta",
+ "min-diagnostics",
+ "min-syntax",
+ "min-types",
+]
+
+[[package]]
 name = "min-syntax"
 version = "0.1.0"
 dependencies = [
@@ -200,6 +211,10 @@ dependencies = [
  "thiserror",
  "tracing",
 ]
+
+[[package]]
+name = "min-types"
+version = "0.1.0"
 
 [[package]]
 name = "once_cell"

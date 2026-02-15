@@ -3,6 +3,8 @@ resolver = "2"
 members = [
     "crates/min-syntax",
     "crates/min-diagnostics",
+    "crates/min-types",
+    "crates/min-hir",
 ]
 
 [workspace.dependencies]
