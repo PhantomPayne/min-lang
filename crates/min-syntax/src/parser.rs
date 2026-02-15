@@ -152,9 +152,34 @@ impl Parser {
                     }
                 }
                 TokenKind::DocString | TokenKind::At => {
-                    // Attributes or docstrings before a function
-                    if let Some(func) = self.parse_function() {
-                        items.push(Item::Function(func));
+                    // Attributes or docstrings before a function or type alias.
+                    // Peek past attrs/docs to see if next keyword is fn or type.
+                    let saved = self.pos;
+                    loop {
+                        self.skip_trivia();
+                        if self.at(TokenKind::At) {
+                            self.parse_attribute();
+                        } else if self.at(TokenKind::DocString) {
+                            self.parse_docstring();
+                        } else {
+                            break;
+                        }
+                    }
+                    let next_kind = self.current_kind();
+                    self.pos = saved; // restore position
+
+                    match next_kind {
+                        TokenKind::Type => {
+                            if let Some(alias) = self.parse_type_alias() {
+                                items.push(Item::TypeAlias(alias));
+                            }
+                        }
+                        _ => {
+                            // Default: treat as function (fn or error)
+                            if let Some(func) = self.parse_function() {
+                                items.push(Item::Function(func));
+                            }
+                        }
                     }
                 }
                 _ => {
@@ -331,11 +356,33 @@ impl Parser {
     fn parse_type_alias(&mut self) -> Option<TypeAlias> {
         self.skip_trivia();
         let start = self.current().span;
+
+        // Collect leading attributes and docstring (before `type` keyword)
+        let mut attributes = Vec::new();
+        let mut doc = None;
+
+        loop {
+            self.skip_trivia();
+            if self.at(TokenKind::At) {
+                attributes.push(self.parse_attribute());
+            } else if self.at(TokenKind::DocString) {
+                doc = Some(self.parse_docstring());
+            } else {
+                break;
+            }
+        }
+
         self.expect(TokenKind::Type)?;
         self.skip_trivia();
 
         let name_tok = self.expect(TokenKind::Ident)?;
         let name = Ident::new(&name_tok.text, name_tok.span);
+
+        // Docstring after name but before `=`
+        self.skip_trivia();
+        if self.at(TokenKind::DocString) && doc.is_none() {
+            doc = Some(self.parse_docstring());
+        }
 
         self.expect(TokenKind::Eq)?;
         let ty = self.parse_type();
@@ -343,6 +390,8 @@ impl Parser {
 
         Some(TypeAlias {
             name,
+            attributes,
+            doc,
             ty,
             span: start.merge(end),
         })
@@ -364,9 +413,15 @@ impl Parser {
                 self.skip_trivia();
                 if self.at(TokenKind::Lt) {
                     self.bump(); // consume <
-                    let mut args = vec![self.parse_type()];
-                    while self.eat(TokenKind::Comma).is_some() {
+                    let mut args = Vec::new();
+                    // Handle empty generic args and trailing commas
+                    loop {
+                        self.skip_trivia();
+                        if self.at(TokenKind::Gt) || self.at_eof() {
+                            break;
+                        }
                         args.push(self.parse_type());
+                        self.eat(TokenKind::Comma); // optional comma
                     }
                     let end_tok = self.expect(TokenKind::Gt);
                     let end = end_tok.map(|t| t.span).unwrap_or(args.last().unwrap().span());
@@ -393,16 +448,66 @@ impl Parser {
     fn parse_struct_type(&mut self) -> TypeExpr {
         let start = self.current().span;
         self.expect(TokenKind::LBrace);
-        let mut fields = Vec::new();
+        let mut fields: Vec<StructField> = Vec::new();
 
+        // Parse fields like fn params: newline OR comma separated,
+        // with optional trailing commas, attrs, and docstrings.
         loop {
             self.skip_trivia();
-            if self.at(TokenKind::RBrace) || self.at_eof() {
-                break;
+            match self.current_kind() {
+                TokenKind::RBrace | TokenKind::Eof => break,
+                TokenKind::At => {
+                    let attr = self.parse_attribute();
+                    if !fields.is_empty() {
+                        // Attr after a field always belongs to the previous field
+                        // (same convention as fn params: attrs follow their field)
+                        fields.last_mut().unwrap().attributes.push(attr);
+                    } else {
+                        // Attr before first field: attach to next field
+                        let mut attrs = vec![attr];
+                        // Collect any additional attrs
+                        loop {
+                            self.skip_trivia();
+                            if self.at(TokenKind::At) {
+                                attrs.push(self.parse_attribute());
+                            } else {
+                                break;
+                            }
+                        }
+                        self.skip_trivia();
+                        if let Some(field) = self.parse_struct_field_with_attrs(attrs, None) {
+                            fields.push(field);
+                        }
+                    }
+                }
+                TokenKind::DocString => {
+                    let ds = self.parse_docstring();
+                    if !fields.is_empty() {
+                        // Docstring after a field belongs to it
+                        fields.last_mut().unwrap().doc = Some(ds);
+                    } else {
+                        // Docstring before first field: attach to next field
+                        self.skip_trivia();
+                        if self.at(TokenKind::Ident) && self.peek_kind() == TokenKind::Colon {
+                            if let Some(field) = self.parse_struct_field_with_attrs(Vec::new(), Some(ds)) {
+                                fields.push(field);
+                            }
+                        }
+                        // else: stray docstring, just drop it
+                    }
+                }
+                TokenKind::Ident => {
+                    if self.peek_kind() == TokenKind::Colon {
+                        if let Some(field) = self.parse_struct_field() {
+                            fields.push(field);
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                _ => break,
             }
-            if let Some(field) = self.parse_struct_field() {
-                fields.push(field);
-            }
+            // Commas are optional separators - eat one if present
             self.eat(TokenKind::Comma);
         }
 
@@ -417,6 +522,14 @@ impl Parser {
     }
 
     fn parse_struct_field(&mut self) -> Option<StructField> {
+        self.parse_struct_field_with_attrs(Vec::new(), None)
+    }
+
+    fn parse_struct_field_with_attrs(
+        &mut self,
+        attributes: Vec<Attribute>,
+        doc: Option<DocString>,
+    ) -> Option<StructField> {
         self.skip_trivia();
         let start = self.current().span;
         let name_tok = self.expect(TokenKind::Ident)?;
@@ -427,6 +540,8 @@ impl Parser {
         Some(StructField {
             name,
             ty,
+            attributes,
+            doc,
             span: start.merge(end),
         })
     }

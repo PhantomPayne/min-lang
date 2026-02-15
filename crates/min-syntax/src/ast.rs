@@ -44,6 +44,8 @@ pub struct Function {
 #[derive(Debug, Clone)]
 pub struct TypeAlias {
     pub name: Ident,
+    pub attributes: Vec<Attribute>,
+    pub doc: Option<DocString>,
     pub ty: TypeExpr,
     pub span: Span,
 }
@@ -127,6 +129,8 @@ impl TypeExpr {
 pub struct StructField {
     pub name: Ident,
     pub ty: TypeExpr,
+    pub attributes: Vec<Attribute>,
+    pub doc: Option<DocString>,
     pub span: Span,
 }
 
