@@ -736,7 +736,7 @@ impl Parser {
             // Check for postfix operators: field access and function call
             match self.current_kind() {
                 TokenKind::Dot => {
-                    let (l_bp, _) = (9, 10); // highest precedence
+                    let (l_bp, _) = (15, 16); // highest precedence
                     if l_bp < min_bp {
                         break;
                     }
@@ -756,7 +756,7 @@ impl Parser {
                 TokenKind::LParen => {
                     // Function call - only if lhs is an identifier
                     if let Expr::Ident(ref ident) = lhs {
-                        let (l_bp, _) = (9, 10);
+                        let (l_bp, _) = (15, 16);
                         if l_bp < min_bp {
                             break;
                         }
