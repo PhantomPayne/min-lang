@@ -1,0 +1,15 @@
+[package]
+name = "min-db"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+salsa = "0.26.0"
+min-diagnostics = { path = "../min-diagnostics" }
+min-syntax = { path = "../min-syntax" }
+min-types = { path = "../min-types" }
+min-hir = { path = "../min-hir" }
+
+[dev-dependencies]
+expect-test = { workspace = true }
+insta = { workspace = true }

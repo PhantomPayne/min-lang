@@ -15,12 +15,14 @@ use min_types::{StructField, Type};
 use crate::hir::*;
 
 /// Built-in function signature: (param_name, param_type) pairs + return type.
+#[derive(Debug)]
 struct BuiltinFn {
     params: Vec<(&'static str, Type)>,
     return_type: Type,
 }
 
 /// The lowering context that tracks scopes and definitions.
+#[derive(Debug)]
 pub struct LoweringContext {
     next_def_id: u32,
     /// Stack of scopes. Each scope maps names to DefIds.

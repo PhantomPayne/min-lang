@@ -5,6 +5,7 @@ members = [
     "crates/min-diagnostics",
     "crates/min-types",
     "crates/min-hir",
+    "crates/min-db",
 ]
 
 [workspace.dependencies]

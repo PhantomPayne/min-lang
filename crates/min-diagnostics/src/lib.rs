@@ -47,14 +47,14 @@ impl fmt::Display for Severity {
 
 /// A labeled span within a diagnostic, pointing at a region of source text
 /// with an accompanying message.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Label {
     pub span: Span,
     pub message: String,
 }
 
 /// A suggested text replacement.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TextEdit {
     pub span: Span,
     pub new_text: String,
@@ -62,14 +62,14 @@ pub struct TextEdit {
 
 /// A suggested fix for a diagnostic, consisting of a message and one or more
 /// text edits.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Fix {
     pub message: String,
     pub edits: Vec<TextEdit>,
 }
 
 /// A compiler diagnostic (error, warning, or informational message).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Diagnostic {
     pub severity: Severity,
     pub code: Option<String>,

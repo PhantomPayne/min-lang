@@ -19,6 +19,7 @@ use crate::hir::*;
 use crate::lower::LoweringContext;
 
 /// Result of type-checking a module.
+#[derive(Debug)]
 pub struct TypeCheckResult {
     /// Type of each expression, indexed by ExprId per function.
     pub function_expr_types: HashMap<DefId, Vec<Type>>,
